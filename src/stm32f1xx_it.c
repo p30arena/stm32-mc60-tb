@@ -50,8 +50,8 @@ uint16_t u2_old_pos;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart);
-
+void cmd_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart);
+void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart, uint8_t is_partial);
 /**
  * some codes are from these links:
  * https://stm32f4-discovery.net/2017/07/stm32-tutorial-efficiently-receive-uart-data-using-dma/
@@ -64,7 +64,7 @@ void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uin
  * \param[in]       data: Data to process
  * \param[in]       len: Length in units of bytes
  */
-void usart_process_data(UART_HandleTypeDef *huart, const void *data, uint16_t len);
+void usart_process_data(UART_HandleTypeDef *huart, const void *data, uint16_t len, uint8_t is_partial);
 
 /**
  * \brief           Check for new data received with DMA
@@ -267,57 +267,54 @@ void usart_rx_check(uint16_t *old_pos_ptr, uint16_t rx_buffer_len, uint8_t *rx_b
 
   /* Calculate current position in buffer and check for new data available */
   pos = rx_buffer_len - rem;
-  if (pos != old_pos)
-  { /* Check change in received data */
-    if (pos > old_pos)
-    { /* Current position is over previous one */
-      /*
-             * Processing is done in "linear" mode.
-             *
-             * Application processing is fast with single data block,
-             * length is simply calculated by subtracting pointers
-             *
-             * [   0   ]
-             * [   1   ] <- old_pos |------------------------------------|
-             * [   2   ]            |                                    |
-             * [   3   ]            | Single block (len = pos - old_pos) |
-             * [   4   ]            |                                    |
-             * [   5   ]            |------------------------------------|
-             * [   6   ] <- pos
-             * [   7   ]
-             * [ N - 1 ]
-             */
-      usart_process_data(huart, &rx_buffer[old_pos], pos - old_pos);
-    }
-    else
-    {
-      /*
-             * Processing is done in "overflow" mode..
-             *
-             * Application must process data twice,
-             * since there are 2 linear memory blocks to handle
-             *
-             * [   0   ]            |---------------------------------|
-             * [   1   ]            | Second block (len = pos)        |
-             * [   2   ]            |---------------------------------|
-             * [   3   ] <- pos
-             * [   4   ] <- old_pos |---------------------------------|
-             * [   5   ]            |                                 |
-             * [   6   ]            | First block (len = N - old_pos) |
-             * [   7   ]            |                                 |
-             * [ N - 1 ]            |---------------------------------|
-             */
-      usart_process_data(huart, &rx_buffer[old_pos], rx_buffer_len - old_pos);
-      if (pos > 0)
-      {
-        usart_process_data(huart, &rx_buffer[0], pos);
-      }
-    }
-    *old_pos_ptr = pos; /* Save current position as old for next transfers */
+  if (pos > old_pos)
+  { /* Current position is over previous one */
+    /*
+      * Processing is done in "linear" mode.
+      *
+      * Application processing is fast with single data block,
+      * length is simply calculated by subtracting pointers
+      *
+      * [   0   ]
+      * [   1   ] <- old_pos |------------------------------------|
+      * [   2   ]            |                                    |
+      * [   3   ]            | Single block (len = pos - old_pos) |
+      * [   4   ]            |                                    |
+      * [   5   ]            |------------------------------------|
+      * [   6   ] <- pos
+      * [   7   ]
+      * [ N - 1 ]
+      */
+    usart_process_data(huart, &rx_buffer[old_pos], pos - old_pos, 0);
   }
+  else
+  {
+    /*
+      * Processing is done in "overflow" mode..
+      *
+      * Application must process data twice,
+      * since there are 2 linear memory blocks to handle
+      *
+      * [   0   ]            |---------------------------------|
+      * [   1   ]            | Second block (len = pos)        |
+      * [   2   ]            |---------------------------------|
+      * [   3   ] <- pos
+      * [   4   ] <- old_pos |---------------------------------|
+      * [   5   ]            |                                 |
+      * [   6   ]            | First block (len = N - old_pos) |
+      * [   7   ]            |                                 |
+      * [ N - 1 ]            |---------------------------------|
+      */
+    usart_process_data(huart, &rx_buffer[old_pos], rx_buffer_len - old_pos, pos > 0);
+    if (pos > 0)
+    {
+      usart_process_data(huart, &rx_buffer[0], pos, 0);
+    }
+  }
+  *old_pos_ptr = pos; /* Save current position as old for next transfers */
 }
 
-void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart)
+void cmd_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart)
 {
   const uint8_t *b = rx_buffer;
   for (; len > 0; --len, ++b)
@@ -341,20 +338,30 @@ void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uin
   }
 }
 
-void usart_process_data(UART_HandleTypeDef *huart, const void *data, uint16_t len)
+void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart, uint8_t is_partial)
+{
+  memcpy(&tx_buffer[*tx_idx], rx_buffer, len);
+  *tx_idx = (*tx_idx + len) % tx_buffer_len;
+
+  if (!is_partial)
+  {
+    HAL_UART_Transmit_DMA(huart, (uint8_t *)tx_buffer, *tx_idx);
+    *tx_idx = 0;
+  }
+}
+
+void usart_process_data(UART_HandleTypeDef *huart, const void *data, uint16_t len, uint8_t is_partial)
 {
   if (len > 0)
   {
     if (huart->Instance == USART1)
     {
       // sending commands ending with \n
-      gather_send(data, len, u2_tx_buffer, &u2_tx_idx, u2_tx_buffer_len, &huart2);
+      cmd_send(data, len, u2_tx_buffer, &u2_tx_idx, u2_tx_buffer_len, &huart2);
     }
     else if (huart->Instance == USART2)
     {
-      // memset(u1_tx_buffer, 0, u1_tx_buffer_len);
-      memcpy(u1_tx_buffer, data, len);
-      HAL_UART_Transmit_DMA(&huart1, (uint8_t *)u1_tx_buffer, len);
+      gather_send(data, len, u1_tx_buffer, &u1_tx_idx, u1_tx_buffer_len, &huart1, is_partial);
     }
   }
 }

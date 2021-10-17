@@ -20,4 +20,6 @@ for cmd in commands:
     print("> {0}".format(cmd.strip()))
     s.write(cmd.encode('ascii'))
     for i in range(5):
-        print(s.readline().decode('ascii'))
+        line_b = s.readline()
+        print(line_b)
+        print(line_b.decode('ascii'))
