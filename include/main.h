@@ -59,7 +59,18 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
+#define u1_rx_buffer_len 128
+#define u1_tx_buffer_len 256
+#define u2_rx_buffer_len 256
+#define u2_tx_buffer_len 128
 
+extern uint8_t u1_rx_buffer[u1_rx_buffer_len];
+extern uint8_t u1_tx_buffer[u1_tx_buffer_len];
+extern uint8_t u2_rx_buffer[u2_rx_buffer_len];
+extern uint8_t u2_tx_buffer[u2_tx_buffer_len];
+
+extern uint16_t u1_tx_idx;
+extern uint16_t u2_tx_idx;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
