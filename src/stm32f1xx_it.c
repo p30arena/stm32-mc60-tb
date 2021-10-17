@@ -234,9 +234,7 @@ void idle_check(UART_HandleTypeDef *huart, uint16_t rx_buffer_len, uint8_t *rx_b
 {
   uint32_t isrflags = READ_REG(huart->Instance->SR);
   uint32_t cr1its = READ_REG(huart->Instance->CR1);
-  // uint32_t cr3its = READ_REG(huart->Instance->CR3);
   uint32_t errorflags = 0x00U;
-  // uint32_t dmarequest = 0x00U;
 
   /* If no error occurs */
   errorflags = (isrflags & (uint32_t)(USART_SR_PE | USART_SR_FE | USART_SR_ORE | USART_SR_NE));
@@ -253,18 +251,6 @@ void idle_check(UART_HandleTypeDef *huart, uint16_t rx_buffer_len, uint8_t *rx_b
   {
     __HAL_UART_CLEAR_IDLEFLAG(huart);
     usart_rx_check(old_pos_ptr, rx_buffer_len, rx_buffer, huart, __HAL_DMA_GET_COUNTER(huart->hdmarx));
-    // char x[16] = {0};
-    // uint16_t rem = __HAL_DMA_GET_COUNTER(huart->hdmarx);
-    // uint16_t len = u1_tx_buffer_len - rem;
-    // snprintf(x, 16, "idle: %ld\n", rem);
-    // HAL_UART_Transmit(huart, (uint8_t *)x, 16, 1000);
-
-    // memset(u1_tx_buffer, 0, u1_tx_buffer_len);
-    // memcpy(u1_tx_buffer, rx_buffer, len);
-    // HAL_UART_Transmit_DMA(huart, (uint8_t *)u1_tx_buffer, len);
-    // HAL_UART_DMAStop(huart);
-    // memset(rx_buffer, 0, rx_buffer_len);
-    // HAL_UART_Receive_DMA(huart, rx_buffer, rx_buffer_len);
   }
 }
 
@@ -353,18 +339,8 @@ void usart_process_data(UART_HandleTypeDef *huart, const void *data, uint16_t le
 {
   if (len > 0)
   {
-    // memset(u1_tx_buffer, 0, u1_tx_buffer_len);
-    // memcpy(u1_tx_buffer, data, len);
-    // HAL_UART_Transmit_DMA(&huart1, (uint8_t *)u1_tx_buffer, len);
-    // gather_send(data, len, u1_tx_buffer, &u1_tx_idx, u1_tx_buffer_len, &huart1);
-    // HAL_UART_Transmit(&huart1, (uint8_t *)data, len, 1000);
-
     if (huart->Instance == USART1)
     {
-      // memset(u2_tx_buffer, 0, u2_tx_buffer_len);
-      // memcpy(u2_tx_buffer, data, len);
-      // HAL_UART_Transmit_DMA(&huart2, (uint8_t *)u2_tx_buffer, len);
-
       // sending commands ending with \n
       gather_send(data, len, u2_tx_buffer, &u2_tx_idx, u2_tx_buffer_len, &huart2);
     }
@@ -404,20 +380,10 @@ void DMA1_Channel4_IRQHandler(void)
 void DMA1_Channel5_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel5_IRQn 0 */
-  // char x[16] = {0};
-  // uint32_t rem = __HAL_DMA_GET_COUNTER(huart1.hdmarx);
-  // snprintf(x, 16, "rem: %ld\n", rem);
-  // HAL_UART_Transmit(&huart1, (uint8_t *)x, 16, 1000);
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_usart1_rx);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-  // if (__HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE) != RESET)
-  // {
-  //   return;
-  // }
-
-  // usart_rx_check(&u1_old_pos, u1_rx_buffer_len, u1_rx_buffer, &huart1, __HAL_DMA_GET_COUNTER(huart1.hdmarx));
-
+  // never call usart_rx_check cause it is in command mode
   /* USER CODE END DMA1_Channel5_IRQn 1 */
 }
 
@@ -431,6 +397,8 @@ void DMA1_Channel6_IRQHandler(void)
   /* USER CODE END DMA1_Channel6_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_usart2_rx);
   /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
+  // no need to call usart_rx_check
+
   // if (__HAL_UART_GET_FLAG(&huart2, UART_FLAG_IDLE) != RESET)
   // {
   //   return;

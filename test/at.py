@@ -17,7 +17,7 @@ with open(os.path.join(dir_path, "at_commands.txt"), "r") as f:
 
 
 for cmd in commands:
-    print(">{0}".format(cmd.strip()))
+    print("> {0}".format(cmd.strip()))
     s.write(cmd.encode('ascii'))
     for i in range(5):
         print(s.readline().decode('ascii'))
