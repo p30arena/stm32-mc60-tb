@@ -53,6 +53,12 @@ uint16_t u2_old_pos;
 void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart);
 
 /**
+ * some codes are from these links:
+ * https://stm32f4-discovery.net/2017/07/stm32-tutorial-efficiently-receive-uart-data-using-dma/
+ * https://github.com/MaJerle/stm32-usart-uart-dma-rx-tx
+ */
+
+/**
  * \brief           Process received data over UART
  * \note            Either process them directly or copy to other bigger buffer
  * \param[in]       data: Data to process
