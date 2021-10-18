@@ -16,10 +16,13 @@ with open(os.path.join(dir_path, "at_commands.txt"), "r") as f:
         commands.append(line)
 
 
-for cmd in commands:
-    print("> {0}".format(cmd.strip()))
-    s.write(cmd.encode('ascii'))
-    for i in range(5):
+for cmd_line in commands:
+    cmd = cmd_line.strip()
+    cmd_len = len(cmd)
+    if cmd_len > 0:
+        print("> {0}".format(cmd))
+    s.write((cmd + '\r\n').encode('ascii'))
+    for i in range(5 if cmd_len > 0 else 1):
         line_b = s.readline()
         print(line_b)
         print(line_b.decode('ascii'))

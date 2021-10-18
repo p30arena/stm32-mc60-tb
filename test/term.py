@@ -3,8 +3,17 @@ import fileinput
 import threading
 from time import sleep
 
+import signal
+
 s = serial.Serial('/dev/ttyUSB0', 115200)
 running = True
+
+
+def ctrl_z_handler(signum, frame):
+    s.write('\x1A\r\n'.encode('ascii'))
+
+
+signal.signal(signal.SIGTSTP, ctrl_z_handler)
 
 
 def transmit_input():
@@ -12,7 +21,7 @@ def transmit_input():
         for line in fileinput.input():
             if not running:
                 break
-            s.write(line.encode('ascii'))
+            s.write((line.strip() + '\r\n').encode('ascii'))
     except KeyboardInterrupt:
         pass
 

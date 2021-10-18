@@ -7,6 +7,9 @@ AT+QIREGAPP
 AT+QICSGP?
 AT+QIACT
 AT+QILOCIP
-AT+QMTOPEN=0,"185.8.175.221","1883"
-AT+QMTCONN=0,"","myTest123TB1010"
-AT+QMTPUB=0,0,0,0,"v1/devices/me/telemetry",{ "value": 88 }
+AT+QMTOPEN=0,"tb-srv.abreman.ir","1883"
+AT+QMTCONN=0,"vd","myTest123TB1010",""
+AT+QMTPUB=0,0,0,0,"v1/devices/me/telemetry"
+
+{ "value": 88 }
+
