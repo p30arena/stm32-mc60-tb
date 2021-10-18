@@ -1,0 +1,64 @@
+RDY
+
++CFUN: 1
+
++CPIN: READY
+
+Call Ready
+
+SMS Ready
+
++CMTI: "SM",14
+
++CMTI: "SM",15
+AT+CPIN?
+AT+CPIN?
++CPIN: READY
+
+OK
+AT+CREG?
+AT+CREG?
++CREG: 0,1
+
+OK
+AT+CGREG?
+AT+CGREG?
++CGREG: 0,1
+
+OK
+AT+QIMODE=0
+AT+QICSGP=1,"V-INTERNET"
+AT+QICSGP=1,"V-INTERNET"
+OK
+AT+QIREGAPP
+AT+QICSGP?
+AT+QICSGP?P
++QICSGP: 1
+
+OK
+AT+QIACT
+AT+QIACT
+OK
+AT+QILOCIP
+AT+QILOCIP
+22.114.23.87
+AT+QMTOPEN=0,"tb-srv.abreman.ir","1883"
+AT+QMTOPEN=0,"tb-srv.abreman.ir","1883"
+OK
+
++QMTOPEN: 0,0
+AT+QMTCONN=0,"vd","myTest123TB1010",""
+AT+QMTCONN=0,"vd","myTest123TB1010",""
+OK
+
++QMTCONN: 0,0,0
+AT+QMTPUB=0,0,0,0,"v1/devices/me/telemetry"                                           
+AT+QMTPUB=0,0,0,0,"v1/devices/me/telemetry"
+
+>
+{ "value": 88 }
+{ "value": 88 }
+^Z
+OK
+
++QMTPUB: 0,0,0

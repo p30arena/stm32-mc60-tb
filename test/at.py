@@ -1,6 +1,5 @@
+from typing import Tuple
 import serial
-import fileinput
-import threading
 from time import sleep
 import os
 
@@ -16,13 +15,42 @@ with open(os.path.join(dir_path, "at_commands.txt"), "r") as f:
         commands.append(line)
 
 
-for cmd_line in commands:
-    cmd = cmd_line.strip()
-    cmd_len = len(cmd)
-    if cmd_len > 0:
-        print("> {0}".format(cmd))
+def readline() -> Tuple[bool, str]:
+    ok = True
+    line = s.readline().decode('ascii').strip()
+    if line == "ERROR" or line.startswith("+CME ERROR"):
+        ok = False
+    print(line)
+    return ok, line
+
+
+def writeline(cmd='') -> None:
     s.write((cmd + '\r\n').encode('ascii'))
-    for i in range(5 if cmd_len > 0 else 1):
-        line_b = s.readline()
-        print(line_b)
-        print(line_b.decode('ascii'))
+
+
+for line in commands:
+    code, tries, cmd = line.strip().split(':')
+    tries = int(tries)
+
+    if code == -1:
+        print("> {0} for {1}s".format(cmd, tries))
+        sleep(tries)
+        continue
+
+    print("> {0}".format(cmd))
+
+    writeline(cmd + '\r\n')
+
+    if tries == -1:
+        readline()
+        writeline()
+        readline()
+    elif tries == -2:
+        readline()
+        writeline('\x1A') # ctrl + z
+        readline()
+        readline()
+        readline()
+    else:
+        for i in range(tries):
+            readline()
