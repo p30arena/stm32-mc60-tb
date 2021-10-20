@@ -24,34 +24,35 @@
 #define __MAIN_H
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
+  /* Private includes ----------------------------------------------------------*/
+  /* USER CODE BEGIN Includes */
 
-/* USER CODE END Includes */
+  /* USER CODE END Includes */
 
-/* Exported types ------------------------------------------------------------*/
-/* USER CODE BEGIN ET */
+  /* Exported types ------------------------------------------------------------*/
+  /* USER CODE BEGIN ET */
 
-/* USER CODE END ET */
+  /* USER CODE END ET */
 
-/* Exported constants --------------------------------------------------------*/
-/* USER CODE BEGIN EC */
+  /* Exported constants --------------------------------------------------------*/
+  /* USER CODE BEGIN EC */
 
-/* USER CODE END EC */
+  /* USER CODE END EC */
 
-/* Exported macro ------------------------------------------------------------*/
-/* USER CODE BEGIN EM */
+  /* Exported macro ------------------------------------------------------------*/
+  /* USER CODE BEGIN EM */
 
-/* USER CODE END EM */
+  /* USER CODE END EM */
 
-/* Exported functions prototypes ---------------------------------------------*/
-void Error_Handler(void);
+  /* Exported functions prototypes ---------------------------------------------*/
+  void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
@@ -59,19 +60,15 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
-#define u1_rx_buffer_len 128
-#define u1_tx_buffer_len 256
-#define u2_rx_buffer_len 256
-#define u2_tx_buffer_len 128
+#define xx_buffer_len 256
 
-extern uint8_t u1_rx_buffer[u1_rx_buffer_len];
-extern uint8_t u1_tx_buffer[u1_tx_buffer_len];
-extern uint8_t u2_rx_buffer[u2_rx_buffer_len];
-extern uint8_t u2_tx_buffer[u2_tx_buffer_len];
+  extern uint8_t u1_rx_buffer[xx_buffer_len];
 
-extern uint16_t u1_tx_idx;
-extern uint16_t u2_tx_idx;
-/* USER CODE END Private defines */
+  extern uint8_t u2_rx_buffer[xx_buffer_len];
+  extern uint8_t u2_tx_buffer[xx_buffer_len];
+
+  extern uint16_t u2_tx_idx;
+  /* USER CODE END Private defines */
 
 #ifdef __cplusplus
 }

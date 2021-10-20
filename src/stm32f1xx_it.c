@@ -44,14 +44,12 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-uint16_t u1_old_pos;
-uint16_t u2_old_pos;
+uint16_t u1_old_pos = 0;
+uint16_t u2_old_pos = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-void cmd_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart);
-void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart, uint8_t is_partial);
 /**
  * some codes are from these links:
  * https://stm32f4-discovery.net/2017/07/stm32-tutorial-efficiently-receive-uart-data-using-dma/
@@ -64,7 +62,7 @@ void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uin
  * \param[in]       data: Data to process
  * \param[in]       len: Length in units of bytes
  */
-void usart_process_data(UART_HandleTypeDef *huart, const void *data, uint16_t len, uint8_t is_partial);
+HAL_StatusTypeDef usart_process_data(UART_HandleTypeDef *huart, uint8_t *data, uint16_t len);
 
 /**
  * \brief           Check for new data received with DMA
@@ -232,138 +230,129 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-
+  HAL_SYSTICK_IRQHandler();
   /* USER CODE END SysTick_IRQn 1 */
 }
 
-void idle_check(UART_HandleTypeDef *huart, uint16_t rx_buffer_len, uint8_t *rx_buffer, uint16_t *old_pos_ptr)
+void usart_rx_check(uint16_t *old_pos_ptr, uint16_t rx_buffer_len, uint8_t *rx_buffer, UART_HandleTypeDef *huart, uint16_t rx_buffer_free_len)
 {
-  uint32_t isrflags = READ_REG(huart->Instance->SR);
-  uint32_t cr1its = READ_REG(huart->Instance->CR1);
-  uint32_t errorflags = 0x00U;
+  HAL_StatusTypeDef result;
+  uint16_t old_pos = *old_pos_ptr;                   // read pointer
+  uint16_t pos = rx_buffer_len - rx_buffer_free_len; // dma write pointer
 
-  /* If no error occurs */
-  errorflags = (isrflags & (uint32_t)(USART_SR_PE | USART_SR_FE | USART_SR_ORE | USART_SR_NE));
-  if (errorflags == RESET)
+  if (pos != old_pos)
   {
-    /* UART in mode Receiver -------------------------------------------------*/
-    if (((isrflags & USART_SR_RXNE) != RESET) && ((cr1its & USART_CR1_RXNEIE) != RESET))
+    if (pos > old_pos)
     {
-      return;
+      result = usart_process_data(huart, &rx_buffer[old_pos], pos - old_pos);
     }
-  }
+    else
+    {
+      result = usart_process_data(huart, &rx_buffer[old_pos], rx_buffer_len - old_pos);
+      pos = 0;
+    }
 
-  if (__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE) != RESET)
-  {
-    __HAL_UART_CLEAR_IDLEFLAG(huart);
-    usart_rx_check(old_pos_ptr, rx_buffer_len, rx_buffer, huart, __HAL_DMA_GET_COUNTER(huart->hdmarx));
+    if (result == HAL_OK)
+    {
+      *old_pos_ptr = pos;
+    }
   }
 }
 
-void usart_rx_check(uint16_t *old_pos_ptr, uint16_t rx_buffer_len, uint8_t *rx_buffer, UART_HandleTypeDef *huart, uint16_t rem)
-{
-  uint16_t old_pos = *old_pos_ptr;
-  uint16_t pos;
+/**
+  * @brief gathers the data until it sees a new line, then sends the gathered data
+  * 
+  * 1. if <HEAD> is not new line: GATHER else: <recovery TRUE>
+  * 2. if <HEAD> is new line
+  * 3.   SEND
+  * 4. else
+  * 5.   INC <HEAD>
+  */
 
-  /* Calculate current position in buffer and check for new data available */
-  pos = rx_buffer_len - rem;
-  if (pos > old_pos)
-  { /* Current position is over previous one */
-    /*
-      * Processing is done in "linear" mode.
-      *
-      * Application processing is fast with single data block,
-      * length is simply calculated by subtracting pointers
-      *
-      * [   0   ]
-      * [   1   ] <- old_pos |------------------------------------|
-      * [   2   ]            |                                    |
-      * [   3   ]            | Single block (len = pos - old_pos) |
-      * [   4   ]            |                                    |
-      * [   5   ]            |------------------------------------|
-      * [   6   ] <- pos
-      * [   7   ]
-      * [ N - 1 ]
-      */
-    usart_process_data(huart, &rx_buffer[old_pos], pos - old_pos, 0);
+HAL_StatusTypeDef cmd_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart)
+{
+  HAL_StatusTypeDef result = HAL_OK;
+  uint8_t recovery = 0;
+
+  if (tx_buffer[*tx_idx] != 10) // must not be new line
+  {
+    const uint8_t *b = rx_buffer;
+    for (; len > 0; --len, ++b)
+    {
+      tx_buffer[*tx_idx] = *b;
+      if (len > 1) // early stop idx inc
+      {
+        *tx_idx = (*tx_idx + 1) % tx_buffer_len;
+      }
+    }
   }
   else
   {
-    /*
-      * Processing is done in "overflow" mode..
-      *
-      * Application must process data twice,
-      * since there are 2 linear memory blocks to handle
-      *
-      * [   0   ]            |---------------------------------|
-      * [   1   ]            | Second block (len = pos)        |
-      * [   2   ]            |---------------------------------|
-      * [   3   ] <- pos
-      * [   4   ] <- old_pos |---------------------------------|
-      * [   5   ]            |                                 |
-      * [   6   ]            | First block (len = N - old_pos) |
-      * [   7   ]            |                                 |
-      * [ N - 1 ]            |---------------------------------|
-      */
-    usart_process_data(huart, &rx_buffer[old_pos], rx_buffer_len - old_pos, pos > 0);
-    if (pos > 0)
-    {
-      usart_process_data(huart, &rx_buffer[0], pos, 0);
-    }
-  }
-  *old_pos_ptr = pos; /* Save current position as old for next transfers */
-}
-
-void cmd_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart)
-{
-  const uint8_t *b = rx_buffer;
-  for (; len > 0; --len, ++b)
-  {
-    tx_buffer[*tx_idx] = *b;
-    if (len > 1) // early stop idx inc
-    {
-      *tx_idx = (*tx_idx + 1) % tx_buffer_len;
-    }
+    recovery = 1;
   }
 
   if (tx_buffer[*tx_idx] == 10) // new line
   {
-    HAL_UART_Transmit_DMA(huart, (uint8_t *)tx_buffer, *tx_idx + 1);
-    *tx_idx = 0;
+    result = HAL_UART_Transmit_DMA(huart, (uint8_t *)tx_buffer, *tx_idx + 1);
+
+    if (result == HAL_OK)
+    {
+      *tx_idx = 0;
+      tx_buffer[0] = 0;
+    }
+    else if (!recovery)
+    {
+      // couldn't send but data is written to buffer
+      result = HAL_OK;
+    }
+
+    // must return busy becuase the buffer is not copied
+    if (recovery)
+    {
+      result = HAL_BUSY;
+    }
   }
   else
   {
     // inc - early stop
     *tx_idx = (*tx_idx + 1) % tx_buffer_len;
   }
+
+  return result;
 }
 
-void gather_send(const uint8_t *rx_buffer, uint16_t len, uint8_t *tx_buffer, uint16_t *tx_idx, uint16_t tx_buffer_len, UART_HandleTypeDef *huart, uint8_t is_partial)
+HAL_StatusTypeDef direct_send(uint8_t *buffer, uint16_t len, UART_HandleTypeDef *huart)
 {
-  memcpy(&tx_buffer[*tx_idx], rx_buffer, len);
-  *tx_idx = (*tx_idx + len) % tx_buffer_len;
-
-  if (!is_partial)
-  {
-    HAL_UART_Transmit_DMA(huart, (uint8_t *)tx_buffer, *tx_idx);
-    *tx_idx = 0;
-  }
+  return HAL_UART_Transmit_DMA(huart, buffer, len);
 }
 
-void usart_process_data(UART_HandleTypeDef *huart, const void *data, uint16_t len, uint8_t is_partial)
+HAL_StatusTypeDef usart_process_data(UART_HandleTypeDef *huart, uint8_t *data, uint16_t len)
 {
   if (len > 0)
   {
     if (huart->Instance == USART1)
     {
       // sending commands ending with \n
-      cmd_send(data, len, u2_tx_buffer, &u2_tx_idx, u2_tx_buffer_len, &huart2);
+      return cmd_send(data, len, u2_tx_buffer, &u2_tx_idx, xx_buffer_len, &huart2);
     }
     else if (huart->Instance == USART2)
     {
-      gather_send(data, len, u1_tx_buffer, &u1_tx_idx, u1_tx_buffer_len, &huart1, is_partial);
+      return direct_send(data, len, &huart1);
     }
   }
+
+  return HAL_OK;
+}
+
+void HAL_SYSTICK_Callback(void)
+{
+  if (HAL_GetTick() % 5 != 0)
+  {
+    return;
+  }
+
+  usart_rx_check(&u1_old_pos, xx_buffer_len, u1_rx_buffer, &huart1, __HAL_DMA_GET_COUNTER(huart1.hdmarx));
+  usart_rx_check(&u2_old_pos, xx_buffer_len, u2_rx_buffer, &huart2, __HAL_DMA_GET_COUNTER(huart2.hdmarx));
 }
 
 /******************************************************************************/
@@ -396,7 +385,6 @@ void DMA1_Channel5_IRQHandler(void)
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_usart1_rx);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-  // never call usart_rx_check cause it is in command mode
   /* USER CODE END DMA1_Channel5_IRQn 1 */
 }
 
@@ -410,14 +398,6 @@ void DMA1_Channel6_IRQHandler(void)
   /* USER CODE END DMA1_Channel6_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_usart2_rx);
   /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
-  // no need to call usart_rx_check
-
-  // if (__HAL_UART_GET_FLAG(&huart2, UART_FLAG_IDLE) != RESET)
-  // {
-  //   return;
-  // }
-
-  // usart_rx_check(&u2_old_pos, u2_rx_buffer_len, u2_rx_buffer, &huart2, __HAL_DMA_GET_COUNTER(huart2.hdmarx));
 
   /* USER CODE END DMA1_Channel6_IRQn 1 */
 }
@@ -445,7 +425,6 @@ void USART1_IRQHandler(void)
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */
-  idle_check(&huart1, u1_rx_buffer_len, u1_rx_buffer, &u1_old_pos);
   /* USER CODE END USART1_IRQn 1 */
 }
 
@@ -459,7 +438,6 @@ void USART2_IRQHandler(void)
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
   /* USER CODE BEGIN USART2_IRQn 1 */
-  idle_check(&huart2, u2_rx_buffer_len, u2_rx_buffer, &u2_old_pos);
   /* USER CODE END USART2_IRQn 1 */
 }
 
