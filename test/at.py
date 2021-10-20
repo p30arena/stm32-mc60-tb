@@ -2,13 +2,23 @@ from typing import Tuple
 import serial
 from time import sleep
 import os
+from threading import Thread
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-s = serial.Serial('/dev/ttyUSB0', 115200, timeout=2)
+s = serial.Serial('/dev/ttyUSB0', 115200)
 running = True
 commands = []
+polled_lines = []
 
+
+def poll_read():
+    while running:
+        line = s.readline().decode('ascii').strip()
+        polled_lines.append(line)
+
+
+Thread(target=poll_read).start()
 
 with open(os.path.join(dir_path, "at_commands.txt"), "r") as f:
     for line in f.readlines():
@@ -16,11 +26,14 @@ with open(os.path.join(dir_path, "at_commands.txt"), "r") as f:
 
 
 def readline() -> Tuple[bool, str]:
+    while len(polled_lines) == 0:
+        sleep(0.5)
+
     ok = True
-    line = s.readline().decode('ascii').strip()
+    line = polled_lines.pop()
+    print(line)
     if line == "ERROR" or line.startswith("+CME ERROR"):
         ok = False
-    print(line)
     return ok, line
 
 
@@ -47,10 +60,17 @@ for line in commands:
         readline()
     elif tries == -2:
         readline()
-        writeline('\x1A') # ctrl + z
+        writeline('\x1A')  # ctrl + z
         readline()
         readline()
         readline()
     else:
         for i in range(tries):
             readline()
+
+try:
+    readline()
+except KeyboardInterrupt:
+    pass
+
+running = False
