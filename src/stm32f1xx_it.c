@@ -86,6 +86,7 @@ HAL_StatusTypeDef usart_process_data(UART_HandleTypeDef *huart, uint8_t *data, u
  * - Increase raw buffer size and allow DMA to write more data before this function is called
  */
 void usart_rx_check(uint16_t *old_pos_ptr, uint16_t rx_buffer_len, uint8_t *rx_buffer, UART_HandleTypeDef *huart, uint16_t rem);
+void HAL_SYSTICK_Callback(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -346,13 +347,18 @@ HAL_StatusTypeDef usart_process_data(UART_HandleTypeDef *huart, uint8_t *data, u
 
 void HAL_SYSTICK_Callback(void)
 {
-  if (HAL_GetTick() % 5 != 0)
-  {
-    return;
-  }
+  uint32_t tick = HAL_GetTick();
 
-  usart_rx_check(&u1_old_pos, xx_buffer_len, u1_rx_buffer, &huart1, __HAL_DMA_GET_COUNTER(huart1.hdmarx));
-  usart_rx_check(&u2_old_pos, xx_buffer_len, u2_rx_buffer, &huart2, __HAL_DMA_GET_COUNTER(huart2.hdmarx));
+  if (tick % 1000 == 0)
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+
+  // if (tick % 5 != 0)
+  // {
+  //   return;
+  // }
+
+  // usart_rx_check(&u1_old_pos, xx_buffer_len, u1_rx_buffer, &huart1, __HAL_DMA_GET_COUNTER(huart1.hdmarx));
+  // usart_rx_check(&u2_old_pos, xx_buffer_len, u2_rx_buffer, &huart2, __HAL_DMA_GET_COUNTER(huart2.hdmarx));
 }
 
 /******************************************************************************/
