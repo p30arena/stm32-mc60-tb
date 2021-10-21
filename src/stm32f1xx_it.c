@@ -56,37 +56,8 @@ uint16_t u2_old_pos = 0;
  * https://github.com/MaJerle/stm32-usart-uart-dma-rx-tx
  */
 
-/**
- * \brief           Process received data over UART
- * \note            Either process them directly or copy to other bigger buffer
- * \param[in]       data: Data to process
- * \param[in]       len: Length in units of bytes
- */
 HAL_StatusTypeDef usart_process_data(UART_HandleTypeDef *huart, uint8_t *data, uint16_t len);
-
-/**
- * \brief           Check for new data received with DMA
- *
- * User must select context to call this function from:
- * - Only interrupts (DMA HT, DMA TC, UART IDLE) with same preemption priority level
- * - Only thread context (outside interrupts)
- *
- * If called from both context-es, exclusive access protection must be implemented
- * This mode is not advised as it usually means architecture design problems
- *
- * When IDLE interrupt is not present, application must rely only on thread context,
- * by manually calling function as quickly as possible, to make sure
- * data are read from raw buffer and processed.
- *
- * Not doing reads fast enough may cause DMA to overflow unread received bytes,
- * hence application will lost useful data.
- *
- * Solutions to this are:
- * - Improve architecture design to achieve faster reads
- * - Increase raw buffer size and allow DMA to write more data before this function is called
- */
 void usart_rx_check(uint16_t *old_pos_ptr, uint16_t rx_buffer_len, uint8_t *rx_buffer, UART_HandleTypeDef *huart, uint16_t rem);
-void HAL_SYSTICK_Callback(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -352,13 +323,13 @@ void HAL_SYSTICK_Callback(void)
   if (tick % 1000 == 0)
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 
-  // if (tick % 5 != 0)
-  // {
-  //   return;
-  // }
+  if (tick % 5 != 0)
+  {
+    return;
+  }
 
-  // usart_rx_check(&u1_old_pos, xx_buffer_len, u1_rx_buffer, &huart1, __HAL_DMA_GET_COUNTER(huart1.hdmarx));
-  // usart_rx_check(&u2_old_pos, xx_buffer_len, u2_rx_buffer, &huart2, __HAL_DMA_GET_COUNTER(huart2.hdmarx));
+  usart_rx_check(&u1_old_pos, xx_buffer_len, u1_rx_buffer, &huart1, __HAL_DMA_GET_COUNTER(huart1.hdmarx));
+  usart_rx_check(&u2_old_pos, xx_buffer_len, u2_rx_buffer, &huart2, __HAL_DMA_GET_COUNTER(huart2.hdmarx));
 }
 
 /******************************************************************************/

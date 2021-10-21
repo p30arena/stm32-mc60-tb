@@ -1,19 +1,14 @@
-0:4:AT+CPIN?
-0:4:AT+CREG?
-0:4:AT+CGREG?
-0:1:AT+QIMODE=0
-0:2:AT+QICSGP=1,"V-INTERNET"
-0:1:AT+QIREGAPP
-0:4:AT+QICSGP?
-0:2:AT+QIACT
--1:10:WAIT
-0:2:AT+QILOCIP
-0:2:AT+QGNSSC=1
-0:2:AT+QGNSSEPO=1
-0:2:AT+QGEPOAID
-0:5:AT+QGNSSRD="NMEA/GSA"
-0:4:AT+QGNSSRD="NMEA/RMC"
-0:4:AT+QMTOPEN=0,"tb-srv.abreman.ir","1883"
-0:4:AT+QMTCONN=0,"vd","myTest123TB1010",""
-0:-1:AT+QMTPUB=0,0,0,0,"v1/devices/me/telemetry"
-0:-2:{ "value": 88 }
+0<>4<>AT+CPIN?
+0<>4<>AT+CREG?
+0<>4<>AT+CGREG?
+0<>1<>AT+QIMODE=0
+0<>2<>AT+QICSGP=1,"V-INTERNET"
+0<>1<>AT+QIREGAPP
+0<>4<>AT+QICSGP?
+0<>2<>AT+QIACT
+-1<>5<>WAIT
+0<>2<>AT+QILOCIP
+0<>4<>AT+QMTOPEN=0,"tb-srv.abreman.ir","1883"
+0<>4<>AT+QMTCONN=0,"vd","myTest123TB1010",""
+0<>-1<>AT+QMTPUB=0,0,0,0,"v1/devices/me/telemetry"
+0<>-2<>{ "value": 88 }
